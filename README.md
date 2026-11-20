@@ -145,7 +145,7 @@ The response contains separate `container` and `vm` objects.
 
 ```bash
 git clone https://github.com/Microsoft-Azure-Demos/auto-scaling-demo-app-nodejs.git
-cd auto-scaling-demo-app-nodejs-v2
+cd auto-scaling-demo-app-nodejs
 ```
 
 ### 2. Build the Docker image
