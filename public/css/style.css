@@ -1,0 +1,52 @@
+
+body {
+    background-color: #f4f6f9;
+    font-family: Arial, sans-serif;
+    color: #333;
+}
+
+.navbar-brand {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.dashboard-card {
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    height: 100%;
+}
+
+.dashboard-card h5 {
+    font-weight: 600;
+    margin-bottom: 20px;
+}
+
+.dashboard-card p {
+    margin-bottom: 12px;
+}
+
+.progress {
+    height: 18px;
+    border-radius: 8px;
+    background-color: #e9ecef;
+}
+
+.progress-bar {
+    font-size: 12px;
+    font-weight: 600;
+    transition: width 0.4s ease;
+}
+
+button {
+    margin-right: 8px;
+}
+
+#health-status {
+    font-weight: 600;
+}
+
+#stress-status {
+    font-size: 14px;
+    color: #666;
+}

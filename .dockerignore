@@ -1,0 +1,18 @@
+# Exclude installed Node.js dependencies
+node_modules/
+
+# Exclude Git repository data
+.git/
+.gitignore
+
+# Exclude environment variables and secrets
+.env
+.env.*
+
+# Exclude logs
+*.log
+npm-debug.log*
+
+# Exclude local development files
+.vscode/
+.DS_Store
