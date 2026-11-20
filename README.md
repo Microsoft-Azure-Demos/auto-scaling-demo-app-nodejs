@@ -90,15 +90,17 @@ The health endpoint allows external monitoring systems to verify that the applic
 
 ### 5. CPU Stress Testing
 
-The application supports controlled CPU workload generation using Node.js Worker Threads.
+The application supports configurable CPU workload generation using Node.js Worker Threads to demonstrate Azure Virtual Machine Scale Set (VMSS) autoscaling.
 
-- Starts CPU-intensive worker threads.
-- Uses the available CPU cores.
-- Automatically stops the workload after 60 seconds.
-- Allows the workload to be stopped manually.
-- Displays the stress-test status on the dashboard.
+- Starts CPU-intensive worker threads to generate controlled CPU load.
+- Uses all CPU cores available to the Node.js process.
+- Provides three configurable stress-test durations: **5, 10, and 15 minutes**.
+- Automatically stops the workload when the selected duration expires.
+- Allows the workload to be stopped manually at any time.
+- Displays the stress-test status and a live countdown timer on the dashboard.
+- Disables duration selection while a stress test is running.
 
-This functionality helps demonstrate how CPU utilization increases under load and returns to normal after the workload stops.
+This functionality helps demonstrate how CPU utilization increases under sustained workload, how Azure VM Scale Sets respond to CPU-based autoscaling rules, and how CPU utilization returns to normal after the workload stops.
 
 ## API Endpoints
 

@@ -1,4 +1,8 @@
 
+// -----------------------------------------
+// Instance information
+// -----------------------------------------
+
 // Retrieve information about the application instance.
 async function loadInstanceInfo() {
     try {
@@ -31,6 +35,10 @@ async function loadInstanceInfo() {
 }
 
 
+// -----------------------------------------
+// Application health
+// -----------------------------------------
+
 // Check whether the application is healthy.
 async function checkApplicationHealth() {
     const appStatus = document.getElementById("app-status");
@@ -56,6 +64,10 @@ async function checkApplicationHealth() {
     }
 }
 
+
+// -----------------------------------------
+// Resource monitoring
+// -----------------------------------------
 
 // Update a progress bar with a percentage value.
 function updateProgressBar(elementId, percentage, label) {
@@ -93,14 +105,8 @@ async function loadResourceMetrics() {
         const container = data.container;
         const vm = data.vm;
 
-        // -----------------------------------------
-        // Container CPU metrics
-        // -----------------------------------------
-
-        updateProgressBar(
-            "container-cpu-usage",
-            container.cpuUsage
-        );
+        // Container CPU metrics.
+        updateProgressBar("container-cpu-usage", container.cpuUsage);
 
         document.getElementById("container-cpu-capacity").textContent =
             container.cpuCapacityCores !== null
@@ -112,11 +118,7 @@ async function loadResourceMetrics() {
                 ? `${container.cpuLimit} cores`
                 : "Unlimited";
 
-        // -----------------------------------------
-        // Container memory metrics
-        // -----------------------------------------
-
-        // Without a memory limit, a limit-based percentage is unavailable.
+        // Container memory metrics.
         updateProgressBar(
             "container-memory-usage",
             container.memoryUsagePercent
@@ -132,22 +134,13 @@ async function loadResourceMetrics() {
                 ? `${container.memoryLimit} MiB`
                 : "Unlimited";
 
-        // -----------------------------------------
-        // VM CPU metrics
-        // -----------------------------------------
-
-        updateProgressBar(
-            "vm-cpu-usage",
-            vm.cpuUsage
-        );
+        // VM CPU metrics.
+        updateProgressBar("vm-cpu-usage", vm.cpuUsage);
 
         document.getElementById("vm-cpu-cores").textContent =
             vm.cpuCores ?? "Unavailable";
 
-        // -----------------------------------------
-        // VM memory metrics
-        // -----------------------------------------
-
+        // VM memory metrics.
         updateProgressBar(
             "vm-memory-usage",
             vm.memoryUsagePercent
@@ -178,16 +171,57 @@ const stopButton = document.getElementById("stop-stress");
 const stressStatus = document.getElementById("stress-status");
 const countdownDisplay = document.getElementById("stress-countdown");
 
-// Track the dashboard countdown.
+
+// Retrieve all duration radio buttons.
+const durationOptions = document.querySelectorAll(
+    'input[name="stress-duration"]'
+);
+
+// Track the dashboard countdown interval.
 let stressCountdown = null;
-let remainingSeconds = 60;
 
 
-// Start the CPU stress test.
+// Format seconds as MM:SS.
+function formatCountdown(seconds) {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+
+    return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
+}
+
+
+// Display the remaining stress-test duration.
+function updateCountdownDisplay(seconds) {
+    countdownDisplay.textContent = formatCountdown(seconds);
+}
+
+
+// Start the CPU stress test using the selected duration.
 startButton.addEventListener("click", async () => {
     try {
+        // Read the selected duration from the dropdown.
+        // Get the duration selected by the user.
+        const selectedDuration = document.querySelector(
+            'input[name="stress-duration"]:checked'
+        );
+
+        const durationMinutes = Number(selectedDuration.value);
+
+        // Prevent changing the duration while the request is being processed.
+        startButton.disabled = true;
+        // Prevent changing the duration while the test is running.
+        durationOptions.forEach(option => {
+            option.disabled = true;
+        });
+
         const response = await fetch("/api/stress/start", {
-            method: "POST"
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                durationMinutes
+            })
         });
 
         const data = await response.json();
@@ -198,21 +232,32 @@ startButton.addEventListener("click", async () => {
 
         stressStatus.textContent = data.message;
 
-        startButton.disabled = true;
         stopButton.disabled = false;
 
-        // Start the countdown after the backend confirms the workload.
-        startCountdown();
+        // Display the initial countdown returned by the backend.
+        updateCountdownDisplay(data.durationSeconds);
+
+        // Synchronize the countdown with the backend.
+        await updateStressStatus();
 
     } catch (error) {
         stressStatus.textContent = error.message;
+
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        // Allow the user to select another duration.
+        durationOptions.forEach(option => {
+            option.disabled = false;
+        });
     }
 });
 
 
-// Stop the CPU stress test.
+// Stop the CPU stress test manually.
 stopButton.addEventListener("click", async () => {
     try {
+        stopButton.disabled = true;
+
         const response = await fetch("/api/stress/stop", {
             method: "POST"
         });
@@ -225,19 +270,27 @@ stopButton.addEventListener("click", async () => {
 
         stressStatus.textContent = data.message;
 
-        startButton.disabled = false;
-        stopButton.disabled = true;
-
-        // Stop and reset the dashboard countdown.
+        // Reset the countdown after stopping the workload.
         stopCountdown();
+
+        startButton.disabled = false;
+        // Allow the user to select a new duration.
+        durationOptions.forEach(option => {
+            option.disabled = false;
+        });
 
     } catch (error) {
         stressStatus.textContent = error.message;
+        stopButton.disabled = false;
     }
 });
 
 
-// Synchronize the dashboard buttons with backend stress-test status.
+// -----------------------------------------
+// Stress-test status and countdown
+// -----------------------------------------
+
+// Synchronize the dashboard with the backend stress-test status.
 async function updateStressStatus() {
     try {
         const response = await fetch("/api/stress/status");
@@ -248,47 +301,29 @@ async function updateStressStatus() {
 
         const data = await response.json();
 
-        // Update buttons according to the backend state.
+        // Synchronize buttons and duration selection.
         startButton.disabled = data.running;
         stopButton.disabled = !data.running;
+        // Keep duration options disabled while a test is running.
+        durationOptions.forEach(option => {
+            option.disabled = data.running;
+        });
 
-        // Display the current stress-test state.
-        stressStatus.textContent = data.running
-            ? `CPU stress test running (${data.activeWorkers} workers).`
-            : "No stress test running.";
+        if (data.running) {
+            stressStatus.textContent =
+                `CPU stress test running (${data.activeWorkers} workers).`;
+
+            // Display the backend's remaining time.
+            updateCountdownDisplay(data.remainingSeconds);
+
+        } else {
+            stressStatus.textContent = "No stress test running.";
+            countdownDisplay.textContent = "--";
+        }
 
     } catch (error) {
         console.error("Stress status error:", error);
     }
-}
-
-
-// Display the remaining stress-test duration.
-function updateCountdownDisplay() {
-    countdownDisplay.textContent = `${remainingSeconds} seconds`;
-}
-
-
-// Start the 60-second dashboard countdown.
-function startCountdown() {
-    // Clear any previously running countdown.
-    clearInterval(stressCountdown);
-
-    remainingSeconds = 60;
-    updateCountdownDisplay();
-
-    // Update the displayed remaining time every second.
-    stressCountdown = setInterval(() => {
-        remainingSeconds--;
-
-        updateCountdownDisplay();
-
-        // Stop the countdown when it reaches zero.
-        if (remainingSeconds <= 0) {
-            clearInterval(stressCountdown);
-            stressCountdown = null;
-        }
-    }, 1000);
 }
 
 
@@ -297,8 +332,7 @@ function stopCountdown() {
     clearInterval(stressCountdown);
     stressCountdown = null;
 
-    remainingSeconds = 60;
-    updateCountdownDisplay();
+    countdownDisplay.textContent = "--";
 }
 
 
@@ -318,5 +352,5 @@ setInterval(checkApplicationHealth, 10000);
 // Refresh resource metrics every 3 seconds.
 setInterval(loadResourceMetrics, 3000);
 
-// Refresh stress-test status every 2 seconds.
-setInterval(updateStressStatus, 2000);
+// Refresh stress-test status every second.
+setInterval(updateStressStatus, 1000);

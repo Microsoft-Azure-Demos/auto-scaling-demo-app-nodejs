@@ -315,18 +315,35 @@ app.get("/api/metrics", (req, res) => {
 });
 
 // Helper function to stop all running CPU workers.
+
+
+// -----------------------------------------
+// CPU stress-test management
+// -----------------------------------------
+
+// Store the selected stress-test duration and start time.
+let stressDurationSeconds = 0;
+let stressStartedAt = null;
+
+
+// Stop all running CPU workers and reset the stress-test state.
 function stopCpuWorkers() {
-  // Clear the automatic stop timer.
+  // Cancel the automatic stop timer.
   clearTimeout(stressTimeout);
   stressTimeout = null;
 
-  // Keep a reference to the running workers before resetting the array.
+  // Keep a reference to the active workers before resetting the array.
   const workers = cpuWorkers;
   cpuWorkers = [];
 
-  // Terminate all active CPU workers.
+  // Terminate every active CPU worker.
   workers.forEach(worker => worker.terminate());
+
+  // Reset the stress-test information.
+  stressDurationSeconds = 0;
+  stressStartedAt = null;
 }
+
 
 // Start the CPU stress test.
 app.post("/api/stress/start", (req, res) => {
@@ -337,10 +354,23 @@ app.post("/api/stress/start", (req, res) => {
     });
   }
 
+  // Accept only the three supported durations.
+  const allowedDurations = [5, 10, 15];
+  const durationMinutes = Number(req.body.durationMinutes);
+
+  if (!allowedDurations.includes(durationMinutes)) {
+    return res.status(400).json({
+      message: "Invalid duration. Select 5, 10, or 15 minutes."
+    });
+  }
+
+  // Convert the selected duration into seconds.
+  stressDurationSeconds = durationMinutes * 60;
+
   // Use the CPU capacity available to this Node.js process.
   const cpuCores = getAvailableCpuCores();
 
-  // Start one CPU worker for each available logical CPU.
+  // Start one CPU worker for every available logical CPU.
   cpuWorkers = Array.from({ length: cpuCores }, () =>
     new Worker(path.join(__dirname, "workers", "cpu-worker.js"))
   );
@@ -352,19 +382,26 @@ app.post("/api/stress/start", (req, res) => {
     });
   });
 
-  // Automatically stop the stress test after 60 seconds.
-  stressTimeout = setTimeout(() => {
-    stopCpuWorkers();
-  }, 60000);
+  // Record when the stress test started.
+  stressStartedAt = Date.now();
 
+  // Automatically stop the stress test after the selected duration.
+  stressTimeout = setTimeout(() => {
+    console.log("CPU stress test duration completed.");
+    stopCpuWorkers();
+  }, stressDurationSeconds * 1000);
+
+  // Confirm that the stress test has started.
   res.json({
-    message: "CPU stress test started.",
+    message: `CPU stress test started for ${durationMinutes} minutes.`,
     workers: cpuWorkers.length,
-    maximumDurationSeconds: 60
+    durationMinutes,
+    durationSeconds: stressDurationSeconds
   });
 });
 
-// Stop the CPU stress test.
+
+// Stop the CPU stress test manually.
 app.post("/api/stress/stop", (req, res) => {
   // Check whether any workers are running.
   if (cpuWorkers.length === 0) {
@@ -380,13 +417,38 @@ app.post("/api/stress/stop", (req, res) => {
   });
 });
 
+
 // Return the current CPU stress-test status.
 app.get("/api/stress/status", (req, res) => {
+  const running = cpuWorkers.length > 0;
+
+  // Calculate the remaining time while the test is running.
+  let remainingSeconds = 0;
+
+  if (running && stressStartedAt !== null) {
+    const elapsedSeconds = Math.floor(
+      (Date.now() - stressStartedAt) / 1000
+    );
+
+    remainingSeconds = Math.max(
+      0,
+      stressDurationSeconds - elapsedSeconds
+    );
+  }
+
   res.json({
-    running: cpuWorkers.length > 0,
-    activeWorkers: cpuWorkers.length
+    running,
+    activeWorkers: cpuWorkers.length,
+    durationSeconds: stressDurationSeconds,
+    remainingSeconds
   });
 });
+
+
+
+
+
+
 
 // Start the Express application on all network interfaces.
 app.listen(PORT, "0.0.0.0", () => {
