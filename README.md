@@ -144,7 +144,7 @@ The response contains separate `container` and `vm` objects.
 ### 1. Clone the repository
 
 ```bash
-git clone <YOUR_GITHUB_REPOSITORY_URL>
+git clone https://github.com/Microsoft-Azure-Demos/auto-scaling-demo-app-nodejs.git
 cd auto-scaling-demo-app-nodejs-v2
 ```
 
